@@ -1,0 +1,80 @@
+---
+title: "Soccer Gini Index"
+author: "Spencer Allgaier"
+date: "2/5/2022"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Introduction:
+When I was a budding soccer prodigy, I was excited to eventually play for my favorite team: Chelsea FC. I didn't know much about the professional world of sports, including how salaries are allocated largely to a few select players, usually strikers, instead of being spread more evenly across the team, or even the league.
+
+Income and wealth inequality measurements are made regularly on the national level, but how about in sports leagues? The Lorenze curve graphically shows how much a given portion of the population receives compared to the total income or wealth (both represented as percents). For example, if all 100 people in statsville received $100,000, totalling $10M, then 25% of the population would receive a total of $2.5M, which is 25% of the total pot. The coordinates for this point would be (0.25, 0.25). Wiht a little calculus, the GINI coefficient is a single number that can indicate how much welath or income is spread across a population based off of the area under the Lorenz Curve.
+
+Let's see what the data shows for these overpayed athletes and figure out which league I should join when I go pro! I think that I want to be in a league that pays more equally so that I have more of a guarantee of making big money and all of my fellow athletes can get along better. For reference, household income in the United States has a GINI coefficient of 0.48 in 2019, South Africa is the the most inequal income country in the world at 0.63 and Slovenia is the most equal income country in the world at 0.25 (based on most recent data: https://worldpopulationreview.com/country-rankings/gini-coefficient-by-country)
+
+```{r}
+library(ineq)
+library(scales)
+library(readxl)
+
+EPL <- read_excel('~/Desktop/Career/Personal/Projects/Soccer GINI/Soccer Salaries.xlsx', sheet = 'EPL')
+bundesliga <- read_excel('~/Desktop/Career/Personal/Projects/Soccer GINI/Soccer Salaries.xlsx', sheet = 'Bundesliga')
+seriea <- read_excel('~/Desktop/Career/Personal/Projects/Soccer GINI/Soccer Salaries.xlsx', sheet = 'Serie A')
+laliga <- read_excel('~/Desktop/Career/Personal/Projects/Soccer GINI/Soccer Salaries.xlsx', sheet = 'La Liga')
+ligue1 <- read_excel('~/Desktop/Career/Personal/Projects/Soccer GINI/Soccer Salaries.xlsx', sheet = 'Ligue 1')
+mls <- read_excel('~/Desktop/Career/Personal/Projects/Soccer GINI/Soccer Salaries.xlsx', sheet = 'MLS')
+
+e <- EPL[8]
+e <- as.numeric(e[[1]])
+e <- e[e != 0]
+eineq <- paste('EPL', round(ineq(e, type = 'Gini'), 2), sep = ': ')
+
+b <- bundesliga[8]
+b <- as.numeric(b[[1]])
+b <- b[b != 0]
+bineq <- paste('Bundesliga', round(ineq(b, type = 'Gini'), 2), sep = ': ')
+
+s <- seriea[8]
+s <- as.numeric(s[[1]])
+s <- s[s != 0]
+sineq <- paste('Serie A', round(ineq(s, type = 'Gini'), 2), sep = ': ')
+
+l <- laliga[8]
+l <- as.numeric(l[[1]])
+l <- l[l != 0]
+lineq <- paste('La Liga', round(ineq(l, type = 'Gini'), 2), sep = ': ')
+
+o <- ligue1[8]
+o <- as.numeric(o[[1]])
+o <- o[o != 0]
+oineq <- paste('Ligue 1', round(ineq(o, type = 'Gini'),2), sep = ': ')
+
+m <- mls[5]
+m <- as.numeric(m[[1]])
+m <- m[m != 0]
+mineq <- paste('MLS', round(ineq(m, type = 'Gini'), 2), sep = ': ')
+
+perfection <- paste('Perfectly Equal', round(ineq(1, type = 'Gini'), 2), sep = ': ')
+
+plot(Lc(e), col = 'Red', lwd = 3,
+     main = 'Big Five + MLS: Income Inequality (18-19 Season)',
+     xlab = '% of Population',
+     ylab = '% of Total Income')
+lines(Lc(b), col = 'DarkOrange', lwd = 3)
+lines(Lc(s), col = 'DarkGreen', lwd = 3)
+lines(Lc(l), col = 'turquoise', lwd = 3)
+lines(Lc(o), col = 'Blue', lwd = 3)
+lines(Lc(m), col = 'Purple', lwd = 3)
+legend('topleft',
+       legend = c(perfection, eineq, sineq, bineq, mineq, oineq, lineq),
+       col = c('black', 'red', 'darkgreen', 'darkorange', 'purple', 'blue', 'turquoise'),
+       lty = 1, lwd = 3, cex = 0.8, box.lty = 0, bg = 'transparent')
+```
+
+## Conclusion
+# After doing this analysis, I've decided that I will be a data scientist instead -- by choice... Pro soccer players are quite talented, whether or not they deserve to be paid as much is up for debate, but the data proves that the pros who do make it into the big leagues aren't guaranteed as much as their peers. Remember, this is based solely on the distribution of income, not individual income. For any aspiring youngsters confident enough that they will be the best, set your sights on La Liga, home of the duopoly that is Messi and Ronaldo. If you are looking purely for equal pay, head to England. This might be because of the focus on team play over individuals or the financial power of the big six, but requires another analysis to investigate.
+# Lastly, the MLS, notably NOT a big european league, shows similar inequality levels to that of a dictatorship. We could do more analysis here, but it's clear that the designated players and import of big european players like David Becham, Theirry Henry, and Wayne Rooney while most of their teammates scrape by is responsible for the impact here.
