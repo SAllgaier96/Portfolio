@@ -1,6 +1,6 @@
 ---
 Title: Random Forest Churn Analysis
-Author: Spencer Allgair
+Author: Spencer Allgaier
 ---
 
 ## Overview
