@@ -1,0 +1,87 @@
+---
+title: "Airline Stock Price and Delays - UAL model1 only"
+author: "Student"
+date: "2022-11-15"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_knit$set(root.dir = '/Users/leland15/6203_git/Team-13/Data/Leland')
+```
+
+Libraries
+```{r}
+library(dplyr)
+library(caret)
+library(car)
+```
+
+
+## Initial Data
+There are 3 initial data files. There is a data file for each of 3 chosen airlines with all BTS monthly delay data
+
+```{r}
+#dal_data <- read.csv("delta_lbc.csv")
+#sw_data <- read.csv("southwest_lbc.csv")
+ual_data <- read.csv("united_lbc.csv") 
+```
+
+
+## United Model1
+This is a model of stock price regressed only on summary delay values reported in flight count increments.
+There are additional delay values reported in minutes that are not used in this model.
+The full data set of pre and post COVID months are used.
+
+```{r}
+ual_model1 <- lm(Open.Stock.Price ~ Sum.of.carrier_ct
+                 + Sum.of.weather_ct + Sum.of.nas_ct + Sum.of.security_ct
+                 + Sum.of.late_aircraft_ct + Sum.of.arr_cancelled 
+                 , data = ual_data)
+
+par(mfrow = c(2,2))
+plot(ual_model1)
+par(mfrow = c(1,1))
+```
+
+## Review of Diagnostic Plots for United Regression Model1
+
+The Residuals vs Fitted plot indicates a linear model absent of non-linear shapes.
+The Normal Q-Q is good.
+The Spread-Location plot is good with residuals spread fairly equally.
+The Residuals vs Leverage plot is a scattered somewhat but not top right or bottom right possible high-influence variables.
+
+# Check for multicollinearity
+```{r}
+vif(ual_model1)
+max(10, 1/(1-summary(ual_model1)$r.squared))
+```
+
+# Another residual plot
+```{r}
+residuals<- rstandard(ual_model1)
+plot(ual_data$yyyymm, residuals, xlab= "yyyymm", ylab = "Residuals")
+```
+# coorelation
+```{r}
+cor(ual_data[, c('Open.Stock.Price','Sum.of.arr_cancelled')])
+par(mfrow=c(2,2))
+hist(residuals,nclass=20, col="darkblue", border="gold",main="Histogram of residuals")
+qqnorm(residuals,col="darkblue")
+qqline(residuals,col="red")
+```
+
+
+# View model summary
+```{r}
+summary(ual_model1)
+```
+
+## Review of the Fit and Significance United Model1
+
+Sum.of.carrier_ct, Sum.of.weather_ct, and Sum.of.arr_cancelled are all significant at a greater than 95% level and have a correct negative value coefficient. The Sum.of.nas_ct coefficient is positive and not in line with field knowledge, this is identical to the Delta Airlines and SW Airlines models that had low R-squared values. The R-sqared value is above the financial industry standard of above 0.7 for a high level of significance at 0.8269. The null hypothesis that the coefficients are not significant can be rejected. 
+
+## Overview Conclusion
+## Delay counts for Southwest do not model for fit or significance with the data. Delay counts for Delta are are closer for fit and significance for the Sum.of.arr_cancelled coefficient but the R-squared value is still too low. United models well on Sum.of.carrier_ct, Sum.of.weather_ct, and Sum.of.arr_cancelled for fit and signifcance of the model and correct sign of the coefficients.
+
+

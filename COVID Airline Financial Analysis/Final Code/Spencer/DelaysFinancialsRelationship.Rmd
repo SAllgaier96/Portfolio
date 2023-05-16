@@ -1,0 +1,132 @@
+
+---
+title: "MGT 6203 - Progress Report (Thuy, Eleibny, Leland, Spencer"
+output:
+  html_document: default
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Read the data set
+```{r}
+#install.packages("weatherData",repos = "http://cran.us.r-project.org")
+#install.packages("r package", repos = "http://cran.us.r-project.org")
+#install.packages("ggplot2")
+library(ggplot2)
+library(tidyverse)
+library(dplyr)
+library(car)
+
+southwest = read.csv("southwest.csv", head = TRUE, sep = ",")
+delta = read.csv("delta.csv", head = TRUE, sep = ",")
+united = read.csv("united.csv", head = TRUE, sep = ",")
+```
+
+# Combine datasets
+```{r}
+all_air <- rbind(southwest, united, delta)
+#head(all_air)
+```
+
+# Making a quarter variable
+```{r}
+all_air$qt[all_air$month<=3] <- 1
+all_air$qt[all_air$month>3 & all_air$month<=6] <- 2
+all_air$qt[all_air$month>6 & all_air$month<=9] <- 3
+all_air$qt[all_air$month>9] <- 4
+
+all_air$Time <- apply(all_air,1 ,function(x) paste0(toString(x["year"]), toString(x["qt"])))
+
+```
+
+# Make a variable to join the airlines based on name
+```{r}
+auto_specs <- as.tibble(all_air)
+all_air <- 
+  all_air %>%
+  mutate(Airline = case_when(carrier == 'WN' ~ 'Southwest',
+                               carrier == 'DL' ~ 'Delta',
+                               carrier == 'UA' ~ 'United'))
+```
+
+# Eliminate non necessary columns
+```{r}
+# head(all_air)
+all_air <- subset(all_air, select = -c(year,month,carrier,qt,airport))
+```
+
+
+# Group and Summarize delays data by quarter
+```{r}
+all_air_qt <- 
+  all_air %>% 
+    group_by(Airline,Time) %>% 
+    summarise(across(where(is.numeric), list(sum = sum)))
+
+#head(all_air_qt)
+```
+
+# Load financial data and apply filter to keep the Revenue rows
+```{r}
+financial = read.csv("financial.csv", head = TRUE, sep = ",")
+revenue <- financial[financial$Type=="Revenue",]
+grossProfit <- financial[financial$Type=="GrossProfit",]
+netIncome <- financial[financial$Type=="NetIncome",]
+head(netIncome,5)
+```
+
+# Merge Financial data
+# Scale the data to Millions
+# Eliminate columns that have a single value
+```{r}
+# Add revenue column
+combined_qts <- merge(all_air_qt,revenue,by=c("Airline","Time"))
+names(combined_qts)[names(combined_qts) == 'Amount'] <- 'Revenue'
+combined_qts <- subset(combined_qts, select = -c(Type,Source) )
+
+# Add gross profit column
+combined_qts <- merge(combined_qts,grossProfit,by=c("Airline","Time"))
+names(combined_qts)[names(combined_qts) == 'Amount'] <- 'GrossProfit'
+combined_qts <- subset(combined_qts, select = -c(Type,Source) )
+
+# Add net income column
+combined_qts <- merge(combined_qts,netIncome,by=c("Airline","Time"))
+names(combined_qts)[names(combined_qts) == 'Amount'] <- 'NetIncome'
+combined_qts <- subset(combined_qts, select = -c(Type,Source) )
+
+head(combined_qts)
+
+sapply(lapply(combined_qts, unique), length)
+```
+
+# Explore data to identify potential trends and outliers
+```{r}
+plot(combined_qts$Revenue,combined_qts$arr_delay_sum, main="Revenue vs Delays", xlab="Revenue in Millions",ylab="Delays")
+plot(combined_qts$GrossProfit,combined_qts$arr_delay_sum, main="Gross Profit vs Delays", xlab="Gross Profit in Millions",ylab="Delays")
+plot(combined_qts$NetIncome,combined_qts$arr_delay_sum, main="Net Income vs Delays", xlab="Net Income in Millions",ylab="Delays")
+```
+# From the scatterplot, we observe an apparent relationship between delays and revenue. There are two outliers from 2020 Q2 and Q3 which we should remove because it is not representative of the wider trends, even post-COVID.
+
+# Now, we fit a model to evaluate the data
+```{r}
+precovid_combined <- combined_qts[combined_qts$Time < 20201,]
+postcovid_combined <- combined_qts[combined_qts$Time >= 20201, ]
+postcovid_combined <- combined_qts[combined_qts$Time != 20202 & combined_qts$Time != 20203, ] # Filter outliers
+
+plot(combined_qts$Revenue,combined_qts$weather_delay_sum, main="Revenue vs Delays", xlab="Revenue in Millions",ylab="Delays")
+plot(combined_qts$Revenue,combined_qts$weather_delay_sum, main="Revenue vs Delays", xlab="Revenue in Millions",ylab="Delays")
+plot(combined_qts$Revenue,combined_qts$weather_delay_sum, main="Revenue vs Delays", xlab="Revenue in Millions",ylab="Delays")
+
+# Pre-COVID
+prefinancialsModel <- lm(arr_del15_sum~Revenue + GrossProfit + NetIncome, precovid_combined)
+summary(prefinancialsModel)
+
+# Post-COVID
+postfinancialsModel <- lm(arr_del15_sum~Revenue + GrossProfit + NetIncome, postcovid_combined)
+summary(postfinancialsModel)
+```
+
+# Time shift is not necessary because an entire quarter is sufficient time to cover any impact in payments or costs caused by delays.

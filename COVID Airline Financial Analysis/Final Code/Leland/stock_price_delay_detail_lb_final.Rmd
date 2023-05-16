@@ -1,0 +1,276 @@
+---
+title: "Airline Stock Price and Delays"
+author: "Student"
+date: "2022-11-10"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_knit$set(root.dir = '/Users/leland15/6203_git/Team-13/Data/Leland')
+```
+
+Libraries
+```{r}
+library(dplyr)
+```
+
+
+## Initial Data
+There are 3 initial data files. There is a data file for each of 3 chosen airlines with all BTS monthly delay data
+
+```{r}
+dal_data <- read.csv("delta_lbc.csv")
+sw_data <- read.csv("southwest_lbc.csv")
+ual_data <- read.csv("united_lbc.csv") 
+```
+
+## Delta Model1
+This is a model of stock price regressed only on individual summary delay values (not the Arr_del15 agregated value) reported in flight count increments.
+There are additional delay values reported in minutes that are not used in this model.
+The full data set of pre and post COVID months are used.
+
+```{r}
+dal_model1 <- lm(Open.Stock.Price ~ Sum.of.carrier_ct
+                 + Sum.of.weather_ct + Sum.of.nas_ct + Sum.of.security_ct
+                 + Sum.of.late_aircraft_ct + Sum.of.arr_cancelled 
+                 , data = dal_data)
+
+par(mfrow = c(2,2))
+plot(dal_model1)
+par(mfrow = c(1,1))
+```
+
+## Review of Diagnostic Plots for Delta Regression Model1
+The Residuals vs Fitted plot indicates a linear model absent of predominate non-linear shapes.
+The Normal Q-Q is ok with a bit of drift on the top right data values straying from the diagonal line.
+The Spread-Location plot is ok also with residuals spread fairly equally..
+The Residuals vs Leverage plot calls is pretty good.
+
+```{r}
+summary(dal_model1)
+```
+
+## Review of the Fit and Significance for Delta Regression Model1
+The Sum.of.arr_cancelled coefficient is significant at a greater than 95% level. The null hypothisis that Sum.of.arr_cancelled is not significant can be rejected. The R-sqared value is a bit belowthe financial industry standard of above 0.7 for a high level of significance, although fairly close at 0.6683. The Sum.of.nas_ct high significance may be correlation and is a positive coefficient. Field knowledge would put more of an emphasis on Sum.of.arr_cancelled which is significant at 97% plus.
+
+
+## Look at the Flight Delay Linar Regression Model Coefficients That Are in Minutes
+```{r}
+dal_model1b <- lm(Open.Stock.Price ~ Sum.of.carrier_delay 
+                 + Sum.of.weather_delay + Sum.of.nas_delay + Sum.of.security_delay
+                 + Sum.of.late_aircraft_delay
+                 , data = dal_data)
+par(mfrow = c(2,2))
+plot(dal_model1b)
+par(mfrow = c(1,1))
+```
+
+```{r}
+summary(dal_model1b)
+```
+
+## Review of the Fit and Significance of Model1b
+R-squared is too low at 0.6076. Sum.of.late_aircraft_delay with a correct negative value is good but Sum.of.nas_delay is positive and not in line with domain or field knowledge.
+
+
+## Go Back to Model1 For Southwest and United
+
+## Southwest Model1
+This is a model of stock price regressed only on summary delay values reported in flight count increments.
+There are additional delay values reported in minutes that are not used in this model.
+The full data set of pre and post COVID months are used.
+
+```{r}
+sw_model1 <- lm(Open.Stock.Price ~ Sum.of.carrier_ct
+                 + Sum.of.weather_ct + Sum.of.nas_ct + Sum.of.security_ct
+                 + Sum.of.late_aircraft_ct + Sum.of.arr_cancelled 
+                 , data = sw_data)
+
+par(mfrow = c(2,2))
+plot(sw_model1)
+par(mfrow = c(1,1))
+```
+
+## Review of Diagnostic Plots for Southwest Regression Model1
+
+The Residuals vs Fitted plot indicates a linear model absent of non-linear shapes.
+The Normal Q-Q is ok with a bit of drift on the top right data values straying from the diagonal line.
+The Spread-Location plot is ok also with residuals spread fairly equally except on the left side of the plot.
+The Residuals vs Leverage plot calls out data point 33 as a potential influential case. This data point is approximately 2 months after the start of COVID. While data point 33 can arguably be removed from the data set prior work with Delta data and other work not in this R Markdown indicate it is a not feasible approach.
+
+
+```{r}
+summary(sw_model1)
+```
+
+## Review of the Fit and Significance Southwest Model1
+The R-sqared value is a below the financial industry standard of above 0.7 for a high level of significance at 0.4353. The Sum.of.arr_cancelled and Sum.of.nas_ct coefficients again come up similar to the Delta Airline models.
+
+
+## United Model1
+This is a model of stock price regressed only on summary delay values reported in flight count increments.
+There are additional delay values reported in minutes that are not used in this model.
+The full data set of pre and post COVID months are used.
+
+```{r}
+ual_model1 <- lm(Open.Stock.Price ~ Sum.of.carrier_ct
+                 + Sum.of.weather_ct + Sum.of.nas_ct + Sum.of.security_ct
+                 + Sum.of.late_aircraft_ct + Sum.of.arr_cancelled 
+                 , data = ual_data)
+
+par(mfrow = c(2,2))
+plot(ual_model1)
+par(mfrow = c(1,1))
+```
+
+## Review of Diagnostic Plots for United Regression Model1
+
+The Residuals vs Fitted plot indicates a linear model absent of non-linear shapes.
+The Normal Q-Q is good.
+The Spread-Location plot is good with residuals spread fairly equally.
+The Residuals vs Leverage plot is a scattered somewhat but not top right or bottom right possible high-influence variables.
+
+```{r}
+summary(ual_model1)
+```
+
+## Review of the Fit and Significance United Model1
+
+Sum.of.carrier_ct, Sum.of.weather_ct, and Sum.of.arr_cancelled are all significant at a greater than 95% level and have a correct negative value coefficient. The Sum.of.nas_ct coefficient is positive and not in line with field knowledge, this is identical to the Delta Airlines and SW Airlines models that had low R-squared values. The R-sqared value is above the financial industry standard of above 0.7 for a high level of significance at 0.8269. The null hypothesis that the coefficients are not significant can be rejected. 
+
+## Overview Conclusion
+## Delay counts for Southwest do not model for fit or significance with the data. Delay counts for Delta are are closer for fit and significance for the Sum.of.arr_cancelled coefficient but the R-squared value is still too low. United models well on Sum.of.carrier_ct, Sum.of.weather_ct, and Sum.of.arr_cancelled for fit and signifcance of the model and correct sign of the coefficients.
+
+#
+## Pre and Post COVID Data Modeling - Post COVID Meaning After Outbreak
+
+Use new yyyymm field for better COVID delineation of data points
+03 March 2020 and 04 April are left off on purpose as transition months
+
+```{r}
+dal_pre_data <- filter(dal_data, yyyymm < 202003)
+dal_post_data <- filter(dal_data, yyyymm > 202004)
+sw_pre_data <- filter(sw_data, yyyymm < 202003)
+sw_post_data <- filter(sw_data, yyyymm > 202004)
+ual_pre_data <- filter(ual_data, yyyymm < 202003)
+ual_post_data <- filter(ual_data, yyyymm > 202004)
+```
+
+
+Delta pre-COVID model with flight count data
+```{r}
+dal_pre_model <- lm(Open.Stock.Price ~ Sum.of.carrier_ct
+                 + Sum.of.weather_ct + Sum.of.nas_ct + Sum.of.security_ct
+                 + Sum.of.late_aircraft_ct + Sum.of.arr_cancelled
+                     , data = dal_pre_data)
+
+par(mfrow = c(2,2))
+plot(dal_pre_model)
+par(mfrow = c(1,1))
+```
+
+
+```{r}
+summary(dal_pre_model)
+```
+## Conclusion - poor R-Squared value
+
+Delta post-COVID model with flight count data
+```{r}
+dal_post_model <- lm(Open.Stock.Price ~ Sum.of.carrier_ct
+                 + Sum.of.weather_ct + Sum.of.nas_ct + Sum.of.security_ct
+                 + Sum.of.late_aircraft_ct + Sum.of.arr_cancelled
+                     , data = dal_post_data)
+
+par(mfrow = c(2,2))
+plot(dal_post_model)
+par(mfrow = c(1,1))
+```
+
+
+```{r}
+summary(dal_post_model)
+```
+
+## Conclusion - poor R-Squared value
+
+Southwest pre-COVID model with flight count data
+```{r}
+sw_pre_model <- lm(Open.Stock.Price ~ Sum.of.carrier_ct
+                 + Sum.of.weather_ct + Sum.of.nas_ct + Sum.of.security_ct
+                 + Sum.of.late_aircraft_ct + Sum.of.arr_cancelled
+                     , data = sw_pre_data)
+
+par(mfrow = c(2,2))
+plot(sw_pre_model)
+par(mfrow = c(1,1))
+
+```
+
+```{r}
+summary(sw_pre_model)
+```
+
+## Conclusion - poor R-Squared value
+
+
+Southwest post-COVID model with flight count data
+```{r}
+sw_post_model <- lm(Open.Stock.Price ~ Sum.of.carrier_ct
+                 + Sum.of.weather_ct + Sum.of.nas_ct + Sum.of.security_ct
+                 + Sum.of.late_aircraft_ct + Sum.of.arr_cancelled
+                     , data = sw_post_data)
+
+par(mfrow = c(2,2))
+plot(sw_post_model)
+par(mfrow = c(1,1))
+```
+
+```{r}
+summary(sw_post_model)
+```
+
+## Conclusion - poor R-Squared value
+
+
+United pre-COVID model with flight count data
+```{r}
+ual_pre_model <- lm(Open.Stock.Price ~ Sum.of.carrier_ct
+                 + Sum.of.weather_ct + Sum.of.nas_ct + Sum.of.security_ct
+                 + Sum.of.late_aircraft_ct + Sum.of.arr_cancelled
+                     , data = ual_pre_data)
+
+par(mfrow = c(2,2))
+plot(ual_pre_model)
+par(mfrow = c(1,1))
+```
+
+
+```{r}
+summary(ual_pre_model)
+```
+
+## Conclusion: poor R-Squared value
+
+United post-COVID model with flight count data
+```{r}
+ual_post_model <- lm(Open.Stock.Price ~ Sum.of.carrier_ct
+                 + Sum.of.weather_ct + Sum.of.nas_ct + Sum.of.security_ct
+                 + Sum.of.late_aircraft_ct + Sum.of.arr_cancelled
+                     , data = ual_post_data)
+
+par(mfrow = c(2,2))
+plot(ual_post_model)
+par(mfrow = c(1,1))
+```
+
+
+```{r}
+summary(ual_post_model)
+```
+
+## Conclusion: poor R-Squared value too
+
+## Pre and Post COVID Data and Models
+## Inconclusive - none of the Pre and Post COVID Data models pass a R-squared value test.

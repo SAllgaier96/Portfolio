@@ -1,0 +1,268 @@
+
+---
+title: "MGT 6203 - Final report - Multiple Linear regression models"
+output:
+  html_document: default
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+# Read the data set
+```{r}
+#install.packages("weatherData",repos = "http://cran.us.r-project.org")
+#install.packages("r package", repos = "http://cran.us.r-project.org")
+#install.packages("ggplot2")
+library(ggplot2)
+library(tidyverse)
+library(dplyr)
+library(car)
+
+southwest = read.csv("southwest.csv", head = TRUE, sep = ",")
+delta = read.csv("delta.csv", head = TRUE, sep = ",")
+united = read.csv("united.csv", head = TRUE, sep = ",")
+```
+
+# Quick glampse at the data type
+```{r}
+str(southwest)
+```
+
+# Combine datasets
+```{r}
+all_air <- rbind(southwest, united, delta)
+#head(all_air)
+```
+
+# Boxplot of delays per airlines
+#
+```{r}
+#str(all_air)
+all_air <- na.omit(all_air)
+boxplot(weather_delay~carrier_name, data=all_air, main="Weather delays by airlines", pch=0.1, col="blue", ylim=c(0,3000))
+
+```
+
+# This plot gives us a quick look on the delay data by airlines.
+# It appears that Delta has a significantly higher median on delays as compared to the other 2 airlines (SouthWest and United Airlines)
+
+
+# Making a quarter variable
+```{r}
+all_air$qt[all_air$month<=3] <- 1
+all_air$qt[all_air$month>3 & all_air$month<=6] <- 2
+all_air$qt[all_air$month>6 & all_air$month<=9] <- 3
+all_air$qt[all_air$month>9] <- 4
+
+all_air$Time <- apply(all_air,1 ,function(x) paste0(toString(x["year"]), toString(x["qt"])))
+
+```
+
+# Make a variable to join the airlines based on name
+
+```{r}
+auto_specs <- as.tibble(all_air)
+all_air <- 
+  all_air %>%
+  mutate(Airline = case_when(carrier == 'WN' ~ 'Southwest',
+                               carrier == 'DL' ~ 'Delta',
+                               carrier == 'UA' ~ 'United'))
+```
+
+# Eliminate non necessary columns
+```{r}
+#head(all_air)
+all_air <- subset(all_air, select = -c(year,month,carrier,qt,airport) )
+
+```
+
+
+# Group and Summarize delays data by quarter
+
+```{r}
+all_air_qt <- 
+  all_air %>% 
+    group_by(Airline,Time) %>% 
+    summarise(across(where(is.numeric), list(sum = sum)))
+
+#head(all_air_qt)
+```
+
+#Load financial data
+#and apply filter to keep the GrossProfit rows
+
+```{r}
+financial = read.csv("financial.csv", head = TRUE, sep = ",")
+GrossProfit <- financial[financial$Type=="GrossProfit",]
+head(GrossProfit,5)
+GrossProfit$Amount = GrossProfit$Amount/1000000
+head(GrossProfit,5)
+```
+
+# Merge Financial data
+# Scale the data to Millions
+# Eliminate columns that have a single value
+
+```{r}
+combined_qts <- merge(all_air_qt,GrossProfit,by=c("Airline","Time"))
+head(combined_qts)
+
+sapply(lapply(combined_qts, unique), length)
+combined_qts <- subset(combined_qts, select = -c(Type,Source) )
+
+combined_qts <- combined_qts %>% drop_na()
+
+```
+
+# Now can explore the data
+```{r}
+ggplot(combined_qts, aes(y = weather_delay_sum,  fill=Airline))+
+  geom_boxplot()+
+  labs(x = "Airlines", y= "Weather delays count",
+       title ="Weather delays by airlines")
+
+```
+In the Boxplot, we observe that the median of delays for United is lower than the Median for Delta and Southwest; both of which appear very similar. 
+
+```{r}
+plot(combined_qts$Amount,combined_qts$weather_delay_sum, main="GrossProfit vs Delays", xlab="GrossProfit in Millions",ylab="Delays")
+
+```
+#From the scatterplot, we observe an apparent linear relationship between delays and GrossProfit.
+# Now, we fit a model to evaluate the data
+```{r}
+model <- lm(Amount~Airline + Time + arr_flights_sum + arr_del15_sum + 
+    carrier_ct_sum + weather_ct_sum + nas_ct_sum + security_ct_sum + 
+    late_aircraft_ct_sum + arr_cancelled_sum + arr_diverted_sum + 
+    arr_delay_sum + carrier_delay_sum + weather_delay_sum + nas_delay_sum + 
+    security_delay_sum , combined_qts)
+summary(model)
+```
+#As we can see from the model's summary, the Airline variable has statistical significance, for all 3 values. Delta is the intercept.
+#The Time(quarter) has some significance spread over time for the years 2017,2018 and 2019. However, it start increasing statistical significance after 2020, quarter 2. All 2020 quarters are statistically significant.
+#Other significant predictots are: arr_flights_sum and arr_cancelled_sum
+The R-square of the model is 0.98739, which indicates that the model can explain approximately 99% of variability of the Gross Profit.
+
+# Let's see if there is a collinearity issue on the model
+```{r}
+vif(model)
+max(10, 1/(1-summary(model)$r.squared))
+```
+
+#the VIF for all predictors is below the threshold 78.51. It indicates the model does not have a  multicollinearity problem.
+
+
+# We will now evaluate the model by plotting the residuals vs the numeric oredictor
+```{r}
+residuals<- rstandard(model)
+plot(combined_qts$weather_delay_sum, residuals, xlab= "Quarter", ylab = "Residuals")
+abline(h=0,lty=2)
+
+```
+
+The general trend of the plot does not appears to show that the constant variance assumption might hold, as we do not see apparent clumps and the residuals appear to be distributed evenly.
+
+# We will create a histogram and a qqplot to see if the assumption of Linearity holds
+```{r}
+par(mfrow=c(2,2))
+hist(residuals,nclass=20, col="darkblue", border="gold",main="Histogram of residuals")
+qqnorm(residuals,col="darkblue")
+qqline(residuals,col="red")
+```
+
+# From the histogram, we see heavy tails and a distribution that is not symetric.
+# Heavy tails can also be observed on the qqplot, suggesting that linearity assumption does not hold.
+
+#We will transform the response variable and fit a new model and evaluate the results
+```{r}
+# While trying to run the correlation, it was found that there are aliases columns on the dataset. We need to identify those and remove them before running the regressions
+
+alias(lm(Amount~., combined_qts))
+vars <- attributes(alias(lm(log(Amount)~., combined_qts))$Complete)$dimnames[[1]]
+
+vars
+
+```
+# It was found that the late_aircraft_delay_sum variable is a an alias, hence we will not use it on the regression to avoid multicollinearity
+
+
+
+```{r}
+model2 <- lm(log(Amount)~Airline + Time + arr_flights_sum + arr_del15_sum + 
+    carrier_ct_sum + weather_ct_sum + nas_ct_sum + security_ct_sum + 
+    late_aircraft_ct_sum + arr_cancelled_sum + arr_diverted_sum + 
+    arr_delay_sum + carrier_delay_sum + weather_delay_sum + nas_delay_sum + 
+    security_delay_sum , combined_qts, na.action = na.exclude)
+summary(model2)
+```
+
+#In this new model with a transformed response, we see that additional coefficients now have significant power at 0.1. These include: arr_flights_sum, arr_cancelled_sum, arr_delay_sum, carrier_delay_sum, weather_delay_sum and nas_delay_sum. We also see additional quarters that now have prediction power.
+#Also noticeable is that AirlineUnited no longer has predicting power. 
+
+
+# We now calculate the variance to determine if there is multicolinearity in the model
+```{r}
+
+vif(model2)
+max(10, 1/(1-summary(model2)$r.squared))
+```
+# The Alpha value is 14.57 and, as we can see from the VIF output, all the predictors are below that. Hence we conclude that the model is not affected by multicollinearity.
+
+# We will conduct residual evaluation on the second model
+```{r}
+
+par(mfrow=c(2,2))
+plot(combined_qts$Amount, residuals(model2),xlab="Gross Profit",ylab="Residuals", main="Versus Predictor")
+abline(h=0,lty=2)
+
+plot(fitted(model2),residuals(model2),xlab="Fitted values",ylab="Residuals",main="Versus Fits")
+abline(h=0,lty=2)
+
+qqnorm(residuals(model2))
+qqline(residuals(model2),col="red")
+hist(residuals(model2),main="Histogram of residuals",xlab="Residuals")
+```
+# From the plots we can conclude that the Constant variance and Independence assumptions might not hold for this model as we see clusters of the residuals around the line.
+# There are some heavy tails on the Histogram and Normal plot, indicating that the assumptions might not hold for this model.
+
+# We will transform the response variable and evaluate the new model to identify if the transformation is useful. but first we will use box cox to determine the optimal lambda
+
+
+```{r}
+#library(MASS)
+#bc < boxcox(model2)
+#bc
+#lambda <- bc$x[which(bc$y==max(bc$y))]
+#lambda
+#[1] 0.3434343
+```
+```{r}
+model3 <- lm(sqrt(Amount)~Airline + Time + arr_flights_sum + arr_del15_sum + 
+    carrier_ct_sum + weather_ct_sum + nas_ct_sum + security_ct_sum + 
+    late_aircraft_ct_sum + arr_cancelled_sum + arr_diverted_sum + 
+    arr_delay_sum + carrier_delay_sum + weather_delay_sum + nas_delay_sum + 
+    security_delay_sum , combined_qts, na.action = na.exclude)
+summary(model3)
+```
+
+```{r}
+
+par(mfrow=c(2,2))
+plot(combined_qts$Amount, residuals(model3),xlab="Gross Profit",ylab="Residuals", main="Versus Predictor")
+abline(h=0,lty=2)
+
+plot(fitted(model3),residuals(model3),xlab="Fitted values",ylab="Residuals",main="Versus Fits")
+abline(h=0,lty=2)
+
+qqnorm(residuals(model3))
+qqline(residuals(model3),col="red")
+hist(residuals(model3),main="Histogram of residuals",xlab="Residuals")
+```
+
+# The transformation has definitively improved the 3rd model. However we can see that the Normality assumption is still violated. 
+# The implication of the Normality assumption violation is that the uncertainly in predicting the Gross Profit would be higher than estimated using this model.
+# The model might not contain as many significant factors to accurately predict Gross Profit.
+# Thus we conclude that weather delays alone does not statistically affect airlines Gross Profit
